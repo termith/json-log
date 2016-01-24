@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+import sys
+import json
+import argparse
+from jinja2 import Environment, FileSystemLoader
+
+FIELDS = '@fields'
+DEFAULT_TEMPLATE = '[ {{timestamp}} ] {{fields.level}} {{message}}'
+
+
+def make_log_filter(condition=None):
+    condition = condition if condition is not None else {}
+
+    def filter(entry):
+        for k, v in condition.items():
+            if entry[FIELDS][k] not in v:
+                return False
+        return True
+    return filter
+
+
+def make_formatter(template_file=None):
+    if template_file is not None:
+        env = Environment(loader=FileSystemLoader(searchpath='/'))
+        template = env.get_template(template_file)
+    else:
+        template = Environment().from_string(DEFAULT_TEMPLATE)
+
+    def render(entry):
+        for k, v in entry.items():
+            if k.startswith('@'):
+                del entry[k]
+                entry[k.lstrip('@')] = v
+        return template.render(**entry)
+    return render
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Read from stdin and filter json-like log')
+    parser.add_argument('--filter', dest='condition', help='Filter condition')
+    parser.add_argument('--template', dest='template', help='Formatting template.')
+    args = parser.parse_args()
+
+    if args.condition is not None:
+        split_condition = args.condition.split('=')
+        field = split_condition[0].split('.')[1]
+        value = split_condition[1]
+        condition = {field: value}
+    else:
+        condition = None
+
+    line_filter = make_log_filter(condition)
+    formatter = make_formatter(args.template)
+
+    try:
+        for line in map(formatter, filter(line_filter, map(json.loads, sys.stdin))):
+            print(line)
+    except KeyboardInterrupt:
+        print('Stopped')
+        sys.exit(0)
