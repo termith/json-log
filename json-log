@@ -10,7 +10,7 @@ DEFAULT_TEMPLATE = '[{{timestamp}}] {{fields.level}} {{message}}'
 
 def make_log_filter(condition=None):
     if condition is not None:
-        split_condition = args.condition.split('=')
+        split_condition = condition.split('=')
         field = split_condition[0].split('.')[1]
         value = split_condition[1]
         condition = {field: value}
@@ -58,3 +58,9 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print('Stopped')
         sys.exit(0)
+    except ValueError:
+        print('Log entry is not valid json')
+        sys.exit(1)
+    except IndexError:
+        print('Wrong format of filter. Please use @fields.your_field=your_value')
+        sys.exit(1)
